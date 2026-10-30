@@ -2,6 +2,22 @@
 
 Extensão de Chrome (Manifest V3) com uma única responsabilidade: **ativar o modo Picture-in-Picture em qualquer player de vídeo** — com botão flutuante sobre o vídeo, ícone na toolbar e atalho de teclado.
 
+## Privacidade e transparência
+
+**Grátis, sem analytics, sem rastreamento e sem dependências.** A extensão não coleta, não transmite e não armazena nenhum dado — tudo roda 100% local, no seu navegador.
+
+| Item | Situação |
+| --- | --- |
+| Analytics / telemetria / pixels | ❌ nenhum |
+| Rastreamento de navegação ou de vídeos | ❌ nenhum |
+| Requisições de rede da extensão | ❌ nenhuma (não há `fetch`/`XMLHttpRequest` no código) |
+| Dependências / bibliotecas de terceiros | ❌ nenhuma — JavaScript puro, sem npm, sem build |
+| Código remoto | ❌ nenhum |
+| Permissões sensíveis (`tabs`, `webNavigation`, `scripting`) | ❌ nenhuma |
+| Custo | ✅ grátis, sem versão paga ou "pro" |
+
+Dá para auditar em minutos: o projeto inteiro são `manifest.json`, `background.js` e `content.js` (~520 linhas), sem nenhum `import`, sem pacotes e sem chamadas externas.
+
 ## O que ela faz
 
 - **Botão flutuante**: ao passar o mouse sobre qualquer `<video>` elegível, aparece um botão no canto do player. Clique → entra no PiP; clique de novo → sai.
