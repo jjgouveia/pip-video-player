@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header class="head">
+    <img src="icons/icon48.png" alt="" width="26" height="26">
+    <div class="titles">
+      <h1>PiP Button</h1>
+      <span class="version">v1.1.0</span>
+    </div>
+  </header>
+
+  <section class="status-card" id="status-card">
+    <span class="dot" id="dot"></span>
+    <div class="status-text">
+      <strong id="status-title">Verificando…</strong>
+      <span id="status-detail">—</span>
+    </div>
+  </section>
+
+  <button id="action" class="action" disabled>Ativar Picture-in-Picture</button>
+
+  <section class="options">
+    <label class="row">
+      <input type="checkbox" id="float-toggle" checked>
+      <span>Botão flutuante sobre os vídeos</span>
+    </label>
+    <label class="row">
+      <input type="checkbox" id="force-toggle" checked>
+      <span>Forçar em players que bloqueiam <em>Netflix, Disney+…</em></span>
+    </label>
+  </section>
+
+  <footer class="foot">
+    <kbd>Alt</kbd>+<kbd>P</kbd> também ativa em qualquer aba
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

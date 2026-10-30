@@ -1,11 +1,10 @@
 /**
  * PiP Button — service worker.
  *
- * O clique na toolbar e o atalho Alt+P não têm acesso ao DOM, então
- * conversam com o content script:
- *   1. pergunta ao frame principal (scope "top");
- *   2. se não houver vídeo lá, repassa para os iframes (scope "sub");
- *   3. um "ping" de confirmação evita mostrar aviso em falso.
+ * O atalho (Alt+P) não tem acesso ao DOM, então conversa com o content
+ * script: pergunta ao frame principal (scope "top") e, se não houver
+ * vídeo lá, repassa para os iframes (scope "sub"). Um "ping" de
+ * confirmação evita mostrar aviso em falso.
  */
 
 const PENDING_CONFIRMATIONS = new Set();
@@ -36,7 +35,6 @@ async function togglePip(tab) {
 
   if (topReply && topReply.found) return;
 
-  // Nenhum vídeo no frame principal: tenta os iframes.
   PENDING_CONFIRMATIONS.add(tab.id);
   try {
     await chrome.tabs.sendMessage(tab.id, { type: "pip-toggle", scope: "sub" });
@@ -46,10 +44,8 @@ async function togglePip(tab) {
 
   setTimeout(() => {
     if (PENDING_CONFIRMATIONS.delete(tab.id)) flashBadge(tab.id, "?");
-  }, 500);
+  }, 600);
 }
-
-chrome.action.onClicked.addListener(togglePip);
 
 chrome.commands.onCommand.addListener((command, tab) => {
   if (command === "toggle-pip") togglePip(tab);

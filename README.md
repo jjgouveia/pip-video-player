@@ -1,10 +1,14 @@
 # PiP Button
 
-Extensão de Chrome (Manifest V3) com uma única responsabilidade: **ativar o modo Picture-in-Picture em qualquer player de vídeo** — com botão flutuante sobre o vídeo, ícone na toolbar e atalho de teclado.
+Extensão de Chrome (Manifest V3) com uma única responsabilidade: **ativar o modo Picture-in-Picture em qualquer player de vídeo** — botão flutuante, popup, ícone na toolbar e atalho `Alt+P`.
+
+Funciona também nos players que tentam bloquear o recurso: **Netflix, Disney+, Prime Video, Max, Globoplay**, YouTube, Vimeo, Twitch e qualquer elemento `<video>` — inclusive dentro de iframes e de shadow DOM fechado.
+
+**Download:** [release mais recente](https://github.com/jjgouveia/pip-video-player/releases/latest) · **Código:** [github.com/jjgouveia/pip-video-player](https://github.com/jjgouveia/pip-video-player)
 
 ## Privacidade e transparência
 
-**Grátis, sem analytics, sem rastreamento e sem dependências.** A extensão não coleta, não transmite e não armazena nenhum dado — tudo roda 100% local, no seu navegador.
+**Grátis, sem analytics, sem rastreamento e sem dependências.** A extensão não coleta, não transmite e não armazena dados pessoais — tudo roda 100% local.
 
 | Item | Situação |
 | --- | --- |
@@ -14,18 +18,39 @@ Extensão de Chrome (Manifest V3) com uma única responsabilidade: **ativar o mo
 | Dependências / bibliotecas de terceiros | ❌ nenhuma — JavaScript puro, sem npm, sem build |
 | Código remoto | ❌ nenhum |
 | Permissões sensíveis (`tabs`, `webNavigation`, `scripting`) | ❌ nenhuma |
+| Armazenamento | apenas 2 preferências locais (`chrome.storage.local`) — nunca saem do navegador |
 | Custo | ✅ grátis, sem versão paga ou "pro" |
 
-Dá para auditar em minutos: o projeto inteiro são `manifest.json`, `background.js` e `content.js` (~520 linhas), sem nenhum `import`, sem pacotes e sem chamadas externas.
+Dá para auditar em minutos: `manifest.json`, `background.js`, `content.js`, `inject.js` e `popup.js`, sem `import`, sem pacotes e sem chamadas externas.
 
 ## O que ela faz
 
-- **Botão flutuante**: ao passar o mouse sobre qualquer `<video>` elegível, aparece um botão no canto do player. Clique → entra no PiP; clique de novo → sai.
-- **Toolbar do Chrome**: clique no ícone da extensão em qualquer aba. Se não houver vídeo no frame principal, ela procura nos iframes.
-- **Alt+P**: alterna o PiP na aba atual (pode ser trocado em `chrome://extensions/shortcuts`).
-- **Força o PiP**: remove o atributo `disablePictureInPicture` que alguns players usam para bloquear o recurso.
-- **Shadow DOM**: o botão vive num shadow root fechado — o CSS do site não o afeta e ele não vaza estilo.
-- **Detecção robusta**: vídeos dentro de shadow DOM de web components também são encontrados.
+- **Botão flutuante**: ao passar o mouse sobre qualquer vídeo elegível, aparece um botão no canto do player. Clique → entra no PiP; clique de novo → sai.
+- **Popup** (ícone da toolbar): mostra o status do vídeo da aba, botão de ativar/sair e as configurações.
+- **`Alt+P`**: alterna o PiP na aba atual (trocável em `chrome://extensions/shortcuts`).
+- **Força em players que bloqueiam**: neutraliza o atributo `disablePictureInPicture` desde o `document_start` — usado por Netflix, Disney+ e outros para esconder o recurso. O site não consegue reativar o bloqueio, mesmo tentando de novo a cada segundo.
+- **Shadow DOM fechado**: intercepta `attachShadow` antes dos scripts do player, então encontra o `<video>` mesmo quando o player o esconde num shadow root fechado.
+- **Iframes**: roda em todos os frames; a toolbar pergunta primeiro ao frame principal e depois aos iframes.
+- **Isolamento visual**: o botão vive num shadow root fechado — o CSS do site não o afeta e ele não vaza estilo.
+
+### O que ela NÃO faz
+
+- Não contorna DRM (Widevine). Não precisa: o Chrome permite PiP de vídeo protegido; o bloqueio da Netflix/Disney+ é o atributo HTML, que a extensão neutraliza.
+- Não funciona em players que renderizam em `<canvas>` (sem elemento `<video>`).
+- Não roda em páginas internas do Chrome (`chrome://...`) nem na Web Store.
+
+## Suporte a players
+
+| Player | Suporte |
+| --- | --- |
+| Netflix | ✅ (remove/neutraliza o bloqueio da Netflix) |
+| Disney+ | ✅ (idem) |
+| Prime Video, Max, Globoplay | ✅ |
+| YouTube | ✅ (inclui o atributo `disablePictureInPicture` do miniplayer) |
+| Vimeo, Twitch, sites de notícia, blogs | ✅ |
+| Vídeos em iframe | ✅ |
+| Players com shadow DOM fechado | ✅ |
+| Conteúdo DRM | ✅ PiP nativo do Chrome (sem quebrar proteção) |
 
 ## Como instalar (modo desenvolvedor)
 
@@ -34,58 +59,71 @@ Dá para auditar em minutos: o projeto inteiro são `manifest.json`, `background
 3. Clique em **Carregar sem compactação** e selecione a pasta `pip-video-player`.
 4. Fixe o ícone na toolbar (opcional).
 
+Requer Chrome 111+ (parâmetro `world: "MAIN"` em content scripts).
+
 ## Como usar
 
 | Ação | Resultado |
 | --- | --- |
 | Passar o mouse sobre o vídeo e clicar no botão | Entra/sai do PiP |
-| Clicar no ícone da extensão | PiP no vídeo principal da aba |
-| `Alt+P` | Mesmo efeito do ícone |
+| Clicar no ícone da extensão | Popup: status, ativar/sair e configurações |
+| `Alt+P` | Mesmo efeito, sem abrir o popup |
 
 Se nenhum vídeo for encontrado, o ícone exibe um selo `?` por 1,5 s. Em páginas internas (`chrome://`, Web Store), exibe `×`.
 
+### Configurações (popup)
+
+- **Botão flutuante sobre os vídeos** — liga/desliga o overlay.
+- **Forçar em players que bloqueiam** — liga/desliga a neutralização do `disablePictureInPicture`. Alterações valem a partir do próximo carregamento da página.
+
 ## Como funciona (resumo técnico)
 
-- `content.js` roda em todos os frames (`all_frames: true`), coleta vídeos (inclusive em shadow DOM) e faz hit-test geométrico do cursor — por isso funciona mesmo quando controles ficam sobrepostos ao player.
-- Ao clicar, chama `video.requestPictureInPicture()` / `document.exitPictureInPicture()` direto na API nativa.
-- `background.js` recebe o clique da toolbar/atalho, pergunta ao frame principal (`scope: "top"`). Se não houver vídeo lá, repassa aos iframes (`scope: "sub"`); um "ping" de confirmação evita aviso falso.
-- **Zero permissões sensíveis**: sem `tabs`, sem `webNavigation`, sem coleta de dados. Content script declarativo em `<all_urls>`.
+- `inject.js` roda em **MAIN world** no `document_start` (antes dos scripts do site): captura todo shadow root via patch de `attachShadow`, neutraliza `disablePictureInPicture` (getter/setter + `setAttribute`/`toggleAttribute`) e mantém um registro de vídeos com atualização por `MutationObserver` + varredura periódica.
+- `content.js` (mundo isolado) faz a ponte: lê as preferências, responde à toolbar/atalho/popup e avisa o service worker — a comunicação com a página é por `CustomEvent`.
+- `background.js` recebe `Alt+P`, pergunta ao frame principal (`scope: "top"`); se não houver vídeo lá, repassa aos iframes (`scope: "sub"`). Um "ping" de confirmação evita aviso falso.
+- `popup.js` consulta o status via content script, alterna o PiP e grava as duas preferências.
 
 ## Limitações
 
-- **DRM/Widevine**: alguns players com conteúdo protegido recusam `requestPictureInPicture` (limitação do navegador, não da extensão).
-- **Iframes com `Permissions-Policy`**: se o site embutido não permitir `picture-in-picture`, a chamada vinda de dentro do iframe falha. O botão flutuante sobre o vídeo do iframe continua funcionando quando o iframe permite.
-- **Shadow DOM fechado** de alguns players não é acessível.
-- Páginas internas do Chrome (`chrome://...`) não permitem content scripts.
+- **DRM**: o PiP continua sendo o nativo do Chrome; a extensão não descriptografa nem contorna proteção.
+- **`Permissions-Policy`** de iframes: se o site embutido proibir `picture-in-picture`, a chamada de dentro do iframe falha (o botão flutuante no vídeo do iframe ainda aparece quando o iframe permite).
+- Players em `<canvas>` (sem `<video>`) não são suportados.
+- Páginas `chrome://...` não permitem content scripts.
 - Para sites `file://`, ative **Permitir acesso a URLs de arquivo** nos detalhes da extensão.
 
-## Customização
+## Testes automatizados
 
-Constantes no topo de `content.js`:
+Validado com Chrome for Testing 156 (headless) carregando a extensão de verdade:
 
-```js
-const MIN_WIDTH = 160;   // tamanho mínimo de vídeo (evita lixo decorativo)
-const MIN_HEIGHT = 120;
-const BTN_SIZE = 36;     // tamanho do botão flutuante
-const BTN_MARGIN = 10;   // distância das bordas
-```
+| Cenário | Resultado |
+| --- | --- |
+| Vídeo simples | ✅ PiP ativado pelo botão flutuante |
+| Vídeo com `disablePictureInPicture` re-sendo setado a cada 300 ms | ✅ atributo neutralizado, PiP ativado |
+| Vídeo em shadow DOM fechado | ✅ descoberto e PiP ativado |
 
-Atalho: `chrome://extensions/shortcuts`. Ícones: substitua `icons/icon{16,32,48,128}.png`.
+O script de teste fica fora do pacote (ambiente local).
 
 ## Estrutura
 
 ```
 pip-video-player/
-├── manifest.json     # MV3, zero permissões
-├── background.js     # toolbar + atalho + relay top→subframes
-├── content.js        # botão flutuante + toggle de PiP
-└── icons/            # ícones da extensão
+├── manifest.json     # MV3, sem permissões sensíveis
+├── inject.js         # MAIN world: shadow roots, bloqueio, botão, toggle
+├── content.js        # ponte isolada (settings, mensagens, ping)
+├── background.js     # atalho + relay top→iframes
+├── popup.html/css/js # status + configurações
+├── icons/            # ícones da extensão
+├── store/            # material de submissão da Chrome Web Store
+└── PRIVACY.md        # política de privacidade
 ```
 
-## Checklist de teste
+## Checklist de teste manual
 
-- [ ] YouTube: hover no player → botão aparece → clique → PiP abre (YouTube bloqueia via atributo e a extensão força).
-- [ ] Página com iframe (ex.: embed do YouTube em um blog): clique no ícone da toolbar → PiP abre dentro do iframe.
+- [ ] YouTube: hover no player → botão aparece → clique → PiP abre.
+- [ ] Netflix: vídeo → botão aparece → PiP abre (bloqueio neutralizado).
+- [ ] Disney+: idem.
+- [ ] Prime Video / Max / Globoplay: idem.
+- [ ] Iframe (embed do YouTube em um blog): popup/toolbar → PiP abre dentro do iframe.
 - [ ] Vídeo com controles sobrepostos → botão aparece mesmo assim.
-- [ ] `Alt+P` em aba com vídeo → alterna.
-- [ ] `Alt+P` em aba sem vídeo → selo `?` no ícone.
+- [ ] Popup: status "Vídeo detectado", botão ativa/sai, toggles persistem.
+- [ ] `Alt+P` em aba com vídeo → alterna. Sem vídeo → selo `?`.
