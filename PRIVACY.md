@@ -22,6 +22,7 @@ A extensão guarda **apenas duas preferências** em `chrome.storage.local`: se o
 ## O que a extensão NÃO faz
 
 - ❌ Sem analytics, telemetria, pixels ou eventos de uso
+- ❌ Sem coleta de erros ou relatórios de falha (crash/error reports)
 - ❌ Sem rastreamento de navegação
 - ❌ Sem requisições de rede externas (não há `fetch` / `XMLHttpRequest` no código)
 - ❌ Sem dependências ou bibliotecas de terceiros

@@ -119,6 +119,8 @@ Used only to store two local preferences (floating button on/off, force mode on/
 
 **A extensão coleta dados do usuário?** → Não (marcar "None" em todas as categorias; certificar que não vende/compartilha dados).
 
+**Coletar erros:** **desabilitado** (deixar a opção desmarcada — a extensão não coleta nem envia relatórios de erro).
+
 **Privacy policy URL:**
 ```
 https://github.com/jjgouveia/pip-video-player/blob/main/PRIVACY.md
@@ -142,7 +144,7 @@ Screenshots capturados da extensão real rodando (Chrome for Testing 156 headles
 
 1. Criar conta em https://chrome.google.com/webstore/devconsole (taxa única US$ 5; verificação por cartão).
 2. "New item" → upload de `dist/pip-button-1.0.0.zip`.
-3. Preencher ficha (textos acima), assets e a aba Privacy practices.
+3. Preencher ficha (textos acima), assets e a aba Privacy practices — incluindo deixar **Coletar erros** desabilitado.
 4. Declaração DSA (EU): se não for atividade comercial, marcar **non-trader**.
 5. Submit for review. Prazo típico: 1–3 dias úteis (pode variar).
 6. Após aprovação, o link público fica disponível no dashboard.
