@@ -1,12 +1,12 @@
-# Chrome Web Store — material de submissão (v1.1.1)
+# Chrome Web Store — material de submissão (v1.0.0)
 
 Tudo pronto para copiar e colar no [Developer Dashboard](https://chrome.google.com/webstore/devconsole).
 O único passo que exige você: conta de desenvolvedor (taxa única de US$ 5) e o envio final.
 
 ## Pacote
 
-- Arquivo: `dist/pip-button-1.1.1.zip` (código puro, sem `.git`, sem README)
-- Versão: `1.1.1`
+- Arquivo: `dist/pip-button-1.0.0.zip` (código puro, sem `.git`, sem README)
+- Versão: `1.0.0`
 
 ## Ficha da loja
 
@@ -141,7 +141,7 @@ Screenshots capturados da extensão real rodando (Chrome for Testing 156 headles
 ## Checklist de envio
 
 1. Criar conta em https://chrome.google.com/webstore/devconsole (taxa única US$ 5; verificação por cartão).
-2. "New item" → upload de `dist/pip-button-1.1.1.zip`.
+2. "New item" → upload de `dist/pip-button-1.0.0.zip`.
 3. Preencher ficha (textos acima), assets e a aba Privacy practices.
 4. Declaração DSA (EU): se não for atividade comercial, marcar **non-trader**.
 5. Submit for review. Prazo típico: 1–3 dias úteis (pode variar).
