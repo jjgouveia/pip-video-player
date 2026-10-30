@@ -32,6 +32,7 @@ Dá para auditar em minutos: `manifest.json`, `background.js`, `content.js`, `in
 - **Shadow DOM fechado**: intercepta `attachShadow` antes dos scripts do player, então encontra o `<video>` mesmo quando o player o esconde num shadow root fechado.
 - **Iframes**: roda em todos os frames; a toolbar pergunta primeiro ao frame principal e depois aos iframes.
 - **Isolamento visual**: o botão vive num shadow root fechado — o CSS do site não o afeta e ele não vaza estilo.
+- **Compatível com Trusted Types**: nada de `innerHTML`/`eval` (o SVG é montado via DOM) — funciona em páginas como o YouTube que bloqueiam essas APIs.
 
 ### O que ela NÃO faz
 
@@ -100,6 +101,7 @@ Validado com Chrome for Testing 156 (headless) carregando a extensão de verdade
 | Vídeo simples | ✅ PiP ativado pelo botão flutuante |
 | Vídeo com `disablePictureInPicture` re-sendo setado a cada 300 ms | ✅ atributo neutralizado, PiP ativado |
 | Vídeo em shadow DOM fechado | ✅ descoberto e PiP ativado |
+| Página com CSP `require-trusted-types-for 'script'` (como o YouTube) | ✅ botão aparece, status detecta e PiP ativa |
 
 O script de teste fica fora do pacote (ambiente local).
 

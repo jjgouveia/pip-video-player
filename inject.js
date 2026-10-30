@@ -6,6 +6,9 @@
  *   2. neutralizar o atributo disablePictureInPicture (Netflix, Disney+ etc.);
  *   3. descobrir vídeos, desenhar o botão flutuante e alternar o PiP;
  *   4. conversar com o content script isolado por CustomEvents.
+ *
+ * Compatível com páginas que exigem Trusted Types (YouTube): nada de
+ * innerHTML/eval — o SVG do botão é montado com createElementNS.
  */
 (() => {
   "use strict";
@@ -19,6 +22,7 @@
   const BTN_SIZE = 36;
   const BTN_MARGIN = 10;
   const ATTR = "disablepictureinpicture";
+  const SVG_NS = "http://www.w3.org/2000/svg";
 
   const PIP_SUPPORTED =
     "pictureInPictureEnabled" in document &&
@@ -253,166 +257,14 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* 5. Botão flutuante (shadow DOM fechado)                             */
+  /* 5. Ponte com o content script isolado                               */
   /* ------------------------------------------------------------------ */
 
-  let hoveredVideo = null;
-  let hideTimer = 0;
-
-  const host = document.createElement("div");
-  host.style.cssText =
-    "position:fixed;top:0;left:0;width:0;height:0;z-index:2147483647;pointer-events:none;";
-  document.documentElement.appendChild(host);
-
-  const shadow = host.attachShadow({ mode: "closed" });
-
-  const style = document.createElement("style");
-  style.textContent = `
-    button {
-      position: absolute;
-      width: ${BTN_SIZE}px;
-      height: ${BTN_SIZE}px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      border-radius: 10px;
-      background: rgba(15, 18, 25, 0.72);
-      color: #fff;
-      cursor: pointer;
-      opacity: 0;
-      visibility: hidden;
-      transform: scale(0.9);
-      transition: opacity 0.12s ease, transform 0.12s ease;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
-      outline: none;
-      pointer-events: auto;
-    }
-    button.is-visible {
-      opacity: 1;
-      visibility: visible;
-      transform: none;
-    }
-    button:hover { background: rgba(30, 36, 50, 0.85); }
-    button.is-active {
-      color: #7cb7ff;
-      border-color: rgba(124, 183, 255, 0.8);
-    }
-    button:active { transform: scale(0.92); }
-  `;
-
-  const button = document.createElement("button");
-  button.type = "button";
-  button.innerHTML =
-    '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">' +
-    '<rect x="3" y="4.75" width="18" height="14.5" rx="2.75" fill="none" stroke="currentColor" stroke-width="2"></rect>' +
-    '<rect x="12.5" y="11.25" width="7.25" height="5.25" rx="1.25" fill="currentColor"></rect>' +
-    "</svg>";
-
-  shadow.append(style, button);
-
-  function showButton(video) {
-    if (!settings.floatButton) return;
-    if (document.fullscreenElement) {
-      hideButton();
-      return;
-    }
-    const rect = video.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) {
-      hideButton();
-      return;
-    }
-
-    const left = Math.max(
-      BTN_MARGIN,
-      Math.min(
-        window.innerWidth - BTN_SIZE - BTN_MARGIN,
-        rect.right - BTN_SIZE - BTN_MARGIN
-      )
-    );
-    const top = Math.max(
-      BTN_MARGIN,
-      Math.min(
-        window.innerHeight - BTN_SIZE - BTN_MARGIN,
-        rect.top + BTN_MARGIN
-      )
-    );
-    button.style.left = `${left}px`;
-    button.style.top = `${top}px`;
-
-    const active = document.pictureInPictureElement === video;
-    button.classList.toggle("is-active", active);
-    button.title = active
-      ? "Sair do Picture-in-Picture (Alt+P)"
-      : "Abrir Picture-in-Picture (Alt+P)";
-    button.setAttribute("aria-label", button.title);
-
-    button.classList.add("is-visible");
-  }
-
-  function hideButton() {
-    hoveredVideo = null;
-    button.classList.remove("is-visible");
-  }
-
-  document.addEventListener(
-    "mousemove",
-    (event) => {
-      if (event.target === host) return;
-      if (!settings.floatButton) return;
-
-      const video = videoAtPoint(event.clientX, event.clientY);
-      if (video) {
-        clearTimeout(hideTimer);
-        hoveredVideo = video;
-        showButton(video);
-      } else if (hoveredVideo) {
-        clearTimeout(hideTimer);
-        hideTimer = setTimeout(hideButton, 150);
-      }
-    },
-    true
-  );
-
-  const refreshPosition = () => {
-    if (!hoveredVideo) return;
-    if (isEligible(hoveredVideo)) {
-      if (button.classList.contains("is-visible")) showButton(hoveredVideo);
-    } else {
-      hideButton();
-    }
+  const floating = {
+    ready: false,
+    show() {},
+    hide() {},
   };
-
-  window.addEventListener("scroll", refreshPosition, {
-    capture: true,
-    passive: true,
-  });
-  window.addEventListener("resize", refreshPosition);
-  setInterval(refreshPosition, 400);
-  document.addEventListener("fullscreenchange", hideButton);
-  document.documentElement.addEventListener("mouseleave", hideButton);
-
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const video = hoveredVideo || findBestVideo();
-    if (!video) return;
-    hoveredVideo = video;
-    togglePip(video).then(() => showButton(video));
-  });
-
-  document.addEventListener("enterpictureinpicture", (event) => {
-    if (event.target === hoveredVideo) showButton(hoveredVideo);
-  });
-
-  document.addEventListener("leavepictureinpicture", () => {
-    if (hoveredVideo) showButton(hoveredVideo);
-  });
-
-  /* ------------------------------------------------------------------ */
-  /* 6. Ponte com o content script isolado                               */
-  /* ------------------------------------------------------------------ */
 
   function emit(type, detail) {
     window.dispatchEvent(new CustomEvent(type, { detail }));
@@ -453,6 +305,203 @@
     if (settings.forceBlockers && !wasForce) enableBlockers();
     if (!settings.forceBlockers && wasForce) disableBlockers();
 
-    if (!settings.floatButton) hideButton();
+    if (!settings.floatButton) floating.hide();
   });
+
+  /* ------------------------------------------------------------------ */
+  /* 6. Botão flutuante (shadow DOM fechado)                             */
+  /* ------------------------------------------------------------------ */
+
+  function initFloatingButton() {
+    if (!document.documentElement) return;
+
+    let hoveredVideo = null;
+    let hideTimer = 0;
+
+    const host = document.createElement("div");
+    host.style.cssText =
+      "position:fixed;top:0;left:0;width:0;height:0;z-index:2147483647;pointer-events:none;";
+
+    const shadow = host.attachShadow({ mode: "closed" });
+
+    const style = document.createElement("style");
+    style.textContent = `
+      button {
+        position: absolute;
+        width: ${BTN_SIZE}px;
+        height: ${BTN_SIZE}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 10px;
+        background: rgba(15, 18, 25, 0.72);
+        color: #fff;
+        cursor: pointer;
+        opacity: 0;
+        visibility: hidden;
+        transform: scale(0.9);
+        transition: opacity 0.12s ease, transform 0.12s ease;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+        outline: none;
+        pointer-events: auto;
+      }
+      button.is-visible {
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+      }
+      button:hover { background: rgba(30, 36, 50, 0.85); }
+      button.is-active {
+        color: #7cb7ff;
+        border-color: rgba(124, 183, 255, 0.8);
+      }
+      button:active { transform: scale(0.92); }
+    `;
+
+    const button = document.createElement("button");
+    button.type = "button";
+
+    const svg = document.createElementNS(SVG_NS, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("width", "20");
+    svg.setAttribute("height", "20");
+    svg.setAttribute("aria-hidden", "true");
+
+    const screen = document.createElementNS(SVG_NS, "rect");
+    screen.setAttribute("x", "3");
+    screen.setAttribute("y", "4.75");
+    screen.setAttribute("width", "18");
+    screen.setAttribute("height", "14.5");
+    screen.setAttribute("rx", "2.75");
+    screen.setAttribute("fill", "none");
+    screen.setAttribute("stroke", "currentColor");
+    screen.setAttribute("stroke-width", "2");
+
+    const inset = document.createElementNS(SVG_NS, "rect");
+    inset.setAttribute("x", "12.5");
+    inset.setAttribute("y", "11.25");
+    inset.setAttribute("width", "7.25");
+    inset.setAttribute("height", "5.25");
+    inset.setAttribute("rx", "1.25");
+    inset.setAttribute("fill", "currentColor");
+
+    svg.append(screen, inset);
+    button.append(svg);
+    shadow.append(style, button);
+    document.documentElement.appendChild(host);
+
+    function showButton(video) {
+      if (!settings.floatButton) return;
+      if (document.fullscreenElement) {
+        hideButton();
+        return;
+      }
+      const rect = video.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        hideButton();
+        return;
+      }
+
+      const left = Math.max(
+        BTN_MARGIN,
+        Math.min(
+          window.innerWidth - BTN_SIZE - BTN_MARGIN,
+          rect.right - BTN_SIZE - BTN_MARGIN
+        )
+      );
+      const top = Math.max(
+        BTN_MARGIN,
+        Math.min(
+          window.innerHeight - BTN_SIZE - BTN_MARGIN,
+          rect.top + BTN_MARGIN
+        )
+      );
+      button.style.left = `${left}px`;
+      button.style.top = `${top}px`;
+
+      const active = document.pictureInPictureElement === video;
+      button.classList.toggle("is-active", active);
+      button.title = active
+        ? "Sair do Picture-in-Picture (Alt+P)"
+        : "Abrir Picture-in-Picture (Alt+P)";
+      button.setAttribute("aria-label", button.title);
+
+      button.classList.add("is-visible");
+    }
+
+    function hideButton() {
+      hoveredVideo = null;
+      button.classList.remove("is-visible");
+    }
+
+    document.addEventListener(
+      "mousemove",
+      (event) => {
+        if (event.target === host) return;
+        if (!settings.floatButton) return;
+
+        const video = videoAtPoint(event.clientX, event.clientY);
+        if (video) {
+          clearTimeout(hideTimer);
+          hoveredVideo = video;
+          showButton(video);
+        } else if (hoveredVideo) {
+          clearTimeout(hideTimer);
+          hideTimer = setTimeout(hideButton, 150);
+        }
+      },
+      true
+    );
+
+    const refreshPosition = () => {
+      if (!hoveredVideo) return;
+      if (isEligible(hoveredVideo)) {
+        if (button.classList.contains("is-visible")) showButton(hoveredVideo);
+      } else {
+        hideButton();
+      }
+    };
+
+    window.addEventListener("scroll", refreshPosition, {
+      capture: true,
+      passive: true,
+    });
+    window.addEventListener("resize", refreshPosition);
+    setInterval(refreshPosition, 400);
+    document.addEventListener("fullscreenchange", hideButton);
+    document.documentElement.addEventListener("mouseleave", hideButton);
+
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const video = hoveredVideo || findBestVideo();
+      if (!video) return;
+      hoveredVideo = video;
+      togglePip(video).then(() => showButton(video));
+    });
+
+    document.addEventListener("enterpictureinpicture", (event) => {
+      if (event.target === hoveredVideo) showButton(hoveredVideo);
+    });
+
+    document.addEventListener("leavepictureinpicture", () => {
+      if (hoveredVideo) showButton(hoveredVideo);
+    });
+
+    floating.show = showButton;
+    floating.hide = hideButton;
+    floating.ready = true;
+  }
+
+  try {
+    initFloatingButton();
+  } catch (error) {
+    // Uma falha na UI não pode derrubar a ponte nem o toggle via Alt+P.
+    console.debug(
+      "[PiP Button] botão flutuante indisponível:",
+      error?.message ?? error
+    );
+  }
 })();
